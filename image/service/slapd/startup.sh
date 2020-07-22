@@ -39,21 +39,49 @@ file_env 'LDAP_CONFIG_PASSWORD'
 file_env 'LDAP_READONLY_USER_PASSWORD'
 
 # Seed ldif from internal path if specified
+override_ldif_or_schema() {
+    local src_dir="$1"
+    local dest_dir="$2"
+    local should_move="$3"
+
+    for _file in $(find ${src_dir} -type f); do
+        for _dir in $(find ${dest_dir}; do
+            _base_name=$(basename ${_file})
+            if [ ! -f ${_dir}/${_base_name} ]; then
+                continue;
+            fi
+
+            if [ -z "${should_move}" ]; then
+                cp ${_file} ${_dir}
+            else
+                mv ${_file} ${_dir}
+            fi
+    done
+}
+
 file_env 'LDAP_SEED_INTERNAL_LDIF_PATH'
 if [ ! -z "${LDAP_SEED_INTERNAL_LDIF_PATH}" ]; then
-  mkdir -p /container/service/slapd/assets/config/bootstrap/ldif/custom/
-  cp -R ${LDAP_SEED_INTERNAL_LDIF_PATH}/*.ldif /container/service/slapd/assets/config/bootstrap/ldif/custom/
-  mkdir -p ${CONTAINER_SERVICE_DIR}/slapd/assets/config/bootstrap/ldif/custom/
-  cp -R ${LDAP_SEED_INTERNAL_LDIF_PATH}/*.ldif ${CONTAINER_SERVICE_DIR}/slapd/assets/config/bootstrap/ldif/custom/
+  override_ldif_or_schema ${LDAP_SEED_INTERNAL_LDIF_PATH} /container/service/slapd/assets/config/bootstrap/ldif
+  override_ldif_or_schema ${LDAP_SEED_INTERNAL_LDIF_PATH} ${CONTAINER_SERVICE_DIR}/slapd/assets/config/bootstrap/ldif/ yes
+
+  mkdir -p /container/service/slapd/assets/config/bootstrap/ldif/z-custom/
+  cp -R ${LDAP_SEED_INTERNAL_LDIF_PATH}/*.ldif /container/service/slapd/assets/config/bootstrap/ldif/zzz-custom/
+
+  mkdir -p ${CONTAINER_SERVICE_DIR}/slapd/assets/config/bootstrap/ldif/z-custom/
+  cp -R ${LDAP_SEED_INTERNAL_LDIF_PATH}/*.ldif ${CONTAINER_SERVICE_DIR}/slapd/assets/config/bootstrap/ldif/zzz-custom/
 fi
 
 # Seed schema from internal path if specified
 file_env 'LDAP_SEED_INTERNAL_SCHEMA_PATH'
 if [ ! -z "${LDAP_SEED_INTERNAL_SCHEMA_PATH}" ]; then
-  mkdir -p /container/service/slapd/assets/config/bootstrap/schema/custom/
-  cp -R ${LDAP_SEED_INTERNAL_SCHEMA_PATH}/*.schema /container/service/slapd/assets/config/bootstrap/schema/custom/
-  mkdir -p ${CONTAINER_SERVICE_DIR}/slapd/assets/config/bootstrap/schema/custom/
-  cp -R ${LDAP_SEED_INTERNAL_SCHEMA_PATH}/*.schema ${CONTAINER_SERVICE_DIR}/slapd/assets/config/bootstrap/schema/custom/
+  override_ldif_or_schema ${LDAP_SEED_INTERNAL_SCHEMA_PATH} /container/service/slapd/assets/config/bootstrap/schema
+  override_ldif_or_schema ${LDAP_SEED_INTERNAL_SCHEMA_PATH} ${CONTAINER_SERVICE_DIR}/slapd/assets/config/bootstrap/schema yes
+
+  mkdir -p /container/service/slapd/assets/config/bootstrap/schema/z-custom/
+  cp -R ${LDAP_SEED_INTERNAL_SCHEMA_PATH}/*.schema /container/service/slapd/assets/config/bootstrap/schema/zzz-custom/
+
+  mkdir -p ${CONTAINER_SERVICE_DIR}/slapd/assets/config/bootstrap/schema/z-custom/
+  cp -R ${LDAP_SEED_INTERNAL_SCHEMA_PATH}/*.schema ${CONTAINER_SERVICE_DIR}/slapd/assets/config/bootstrap/schema/zzz-custom/
 fi
 
 # create dir if they not already exists
