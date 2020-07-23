@@ -39,17 +39,67 @@ file_env 'LDAP_CONFIG_PASSWORD'
 file_env 'LDAP_READONLY_USER_PASSWORD'
 
 # Seed ldif from internal path if specified
+copy_or_overwrite() {
+    local _type="$1"
+    local _src_dir="$2"
+    local _dest_dir="$3"
+
+    local _dest_custom_dir="${_dest_dir}/zzz-custom"
+    local _copied=""
+
+    if [ -f ${_src_dir}/control ]; then
+        while read _file _target; do
+            if [[ "${_file}" =~ ^# ]]; then
+                continue
+            fi
+            if [ "${_file##*.}" != "${_type}" ]; then
+                continue
+            fi
+            if [ -f ${_src_dir}/${_file} ]; then
+                cp ${_src_dir}/${_file} ${_dest_dir}/${_target}
+            fi
+        done < ${_src_dir}/control
+    fi
+
+    mkdir -p ${_dest_custom_dir}
+
+    for _file in $(find ${_src_dir} -type f -name "*.${_type}"); do
+        _copied=""
+        _base_name=$(basename ${_file})
+
+        local _exist=$(grep -c -w ${_base_name} ${_src_dir}/control)
+        if [ "${_exist}" -ne 0 ]; then
+            log-helper debug "skip ${_base_name}"
+            continue
+        fi
+
+        log-helper debug "adding ${_base_name}... "
+
+        for _dir in $(find ${_dest_dir} -type d); do
+            if [ -f ${_dir}/${_base_name} ]; then
+                cp ${_file} ${_dir}
+                _copied="yes"
+                break;
+            fi
+        done
+
+        if [ -z "${_copied}" ]; then
+            cp ${_file} ${_dest_custom_dir}
+        fi
+    done
+}
+
 file_env 'LDAP_SEED_INTERNAL_LDIF_PATH'
 if [ ! -z "${LDAP_SEED_INTERNAL_LDIF_PATH}" ]; then
-  mkdir -p /container/service/slapd/assets/config/bootstrap/ldif/custom/
-  cp -R ${LDAP_SEED_INTERNAL_LDIF_PATH}/*.ldif /container/service/slapd/assets/config/bootstrap/ldif/custom/
+  copy_or_overwrite ldif ${LDAP_SEED_INTERNAL_LDIF_PATH} /container/service/slapd/assets/config/bootstrap/ldif
+  copy_or_overwrite ldif ${LDAP_SEED_INTERNAL_LDIF_PATH} ${CONTAINER_SERVICE_DIR}/slapd/assets/config/bootstrap/ldif/
 fi
 
 # Seed schema from internal path if specified
 file_env 'LDAP_SEED_INTERNAL_SCHEMA_PATH'
 if [ ! -z "${LDAP_SEED_INTERNAL_SCHEMA_PATH}" ]; then
-  mkdir -p /container/service/slapd/assets/config/bootstrap/schema/custom/
-  cp -R ${LDAP_SEED_INTERNAL_SCHEMA_PATH}/*.schema /container/service/slapd/assets/config/bootstrap/schema/custom/
+  copy_or_overwrite schema ${LDAP_SEED_INTERNAL_SCHEMA_PATH} /container/service/slapd/assets/config/bootstrap/schema
+  copy_or_overwrite schema ${LDAP_SEED_INTERNAL_SCHEMA_PATH} ${CONTAINER_SERVICE_DIR}/slapd/assets/config/bootstrap/schema
 fi
 
 # create dir if they not already exists
